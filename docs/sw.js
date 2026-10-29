@@ -1,6 +1,6 @@
 // Serves the app from cache so it opens at a gym with no signal. Fresh files are fetched in the
 // background and show up on the next launch; bump VERSION when the file list changes.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `volleystats-${VERSION}`;
 const FILES = [
   './',
@@ -8,8 +8,19 @@ const FILES = [
   'manifest.webmanifest',
   'css/styles.css',
   'js/app.js',
-  'js/domain.js',
-  'js/store.js',
+  'js/core.js',
+  'js/db.js',
+  'js/router.js',
+  'js/model/constants.js',
+  'js/model/engine.js',
+  'js/model/stats.js',
+  'js/model/exchange.js',
+  'js/ui/dom.js',
+  'js/ui/home.js',
+  'js/ui/setup.js',
+  'js/ui/live.js',
+  'js/ui/feed.js',
+  'js/ui/reports.js',
   'icons/apple-touch-icon.png',
   'icons/icon-192.png',
   'icons/icon-512.png',
