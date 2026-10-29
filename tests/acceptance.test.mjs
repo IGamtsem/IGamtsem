@@ -413,3 +413,23 @@ test('performance: 5000 events rebuild and full reports within budget', () => {
   const ms = performance.now() - t0;
   assert.ok(ms < 1000, `took ${ms.toFixed(0)} ms`);
 });
+
+test('quick-mode completeness: result-only rallies are marked incomplete, serve/reception chains are not', () => {
+  const s = scenario({ firstServe: 'them' });
+  s.us('M1', 'B', 'P'); // their serve, no reception recorded → incomplete
+  s.us('S', 'S', 'in');
+  s.them('A', 'K'); // our serve, their kill → complete for our side
+  s.them('S', '='); // their serve error → complete
+  s.us('S', 'S', 'in');
+  s.us('OH1', 'A', 'E'); // our serve, then our attack with no first touch → incomplete
+  s.them('S', 'in');
+  s.us('OH1', 'R', '+');
+  s.us('O', 'A', 'K'); // reception + kill → complete, first attack after reception
+  const built = s.build();
+  assert.deepEqual(built.rallies.map((r) => r.complete), [false, true, true, false, true]);
+  assert.ok(built.rallies[0].gaps.includes('Нет приёма'));
+  const o = playersReport(built, s.match).rows.find((r) => r.id === 'O').line.attack;
+  assert.equal(o.afterR.ta, 1);
+  const oh = playersReport(built, s.match).rows.find((r) => r.id === 'OH1').line.attack;
+  assert.equal(oh.afterR.ta, 0, 'an attack right after our own serve is not a first attack after reception');
+});

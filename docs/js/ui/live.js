@@ -1,7 +1,7 @@
 // Live input (spec §5): player → action → grade, rally end in one tap, undo/redo always visible,
 // substitutions, libero, timeouts, sanctions, replay. Keyboard shortcuts for laptops.
 
-import { state, openMatch, addEntry, setFields, undo, redo, rosterMap, playerLabel } from '../core.js';
+import { state, openMatch, addEntry, setFields, undo, redo, rosterMap, playerLabel, saveMatch } from '../core.js';
 import { SKILLS, SKILL_ORDER, GRADES, gradeInfo, POSITION_SHORT, ATTACK_TYPES, DIRECTIONS, SERVE_TYPES, SYSTEM, DIFFICULTY, REASONS, other, isFront } from '../model/constants.js';
 import { positionOfSlot, setTarget } from '../model/engine.js';
 import { h, actions, ICONS, confirmBox, alertBox, askText, openSheet, closeSheet, sheetBar, isDialogOpen, toast, score } from './dom.js';
@@ -67,7 +67,7 @@ function applySuggestion() {
   if (!L || !built) return;
   const s = suggest(built);
   L.suggestion = s;
-  L.player = s.player ?? null;
+  L.player = isQuick(state.current.match, L) ? null : s.player ?? null;
   L.skill = s.skill ?? null;
   L.keyMode = 'idle';
   L.buf = '';
@@ -106,9 +106,10 @@ export async function viewLive({ id }) {
       <p class="hint">Если партия закончилась по ошибке ввода, нажмите «Отменить» вверху.</p>
     </div>`;
   } else {
+    const quick = isQuick(match, L);
     body = `<div class="live-grid">
-      <section class="live-court">${courtHtml(match, built, L, map)}${benchHtml(match, built, L, map)}</section>
-      <section class="live-pad">${padHtml(match, built, L, map)}</section>
+      <section class="live-court">${courtHtml(match, built, L, map)}${quick ? '' : benchHtml(match, built, L, map)}</section>
+      <section class="live-pad">${quick ? quickPadHtml(match, built, L, map) : padHtml(match, built, L, map)}</section>
     </div>`;
   }
 
@@ -227,7 +228,8 @@ function padHtml(match, built, L, map) {
   const canGrade = Boolean(L.player && L.skill);
   const kb = keyStatus(L, map);
 
-  return `<div class="pad-who ${L.player ? '' : 'muted'}">${h(who)}${L.skill ? ` · <b>${SKILLS[L.skill].title}</b>` : ''}</div>
+  const back = match.mode !== 'detailed' ? '<button class="link q-back" data-act="q-full" data-value="0">← Быстрый ввод</button>' : '';
+  return `${back}<div class="pad-who ${L.player ? '' : 'muted'}">${h(who)}${L.skill ? ` · <b>${SKILLS[L.skill].title}</b>` : ''}</div>
     <div class="skills">${skills}</div>
     <div class="grades">${L.skill ? gradeButtons(team, L.skill, canGrade) : '<p class="hint">Выберите действие</p>'}</div>
     ${extrasHtml(built, L, map)}
@@ -349,10 +351,175 @@ function toolsHtml(match, built, L) {
     <button class="tool" data-act="live-replay" ${liveNow ? '' : 'disabled'}>${ICONS.replay}<span>Переиграть</span></button>
     <button class="tool" data-act="live-end-set" ${liveNow ? '' : 'disabled'}>${ICONS.flag}<span>Конец партии</span></button>
     <button class="tool" data-act="live-flip">${ICONS.flip}<span>Сторона</span></button>
+    <button class="tool" data-act="live-mode">${ICONS.swap}<span>${match.mode === 'detailed' ? 'Режим: подробный' : 'Режим: быстрый'}</span></button>
     <a class="tool" href="#/feed/${id}">${ICONS.list}<span>Лента</span></a>
     <a class="tool" href="#/reports/${id}/team">${ICONS.chart}<span>Отчёты</span></a>
   </div>`;
 }
+
+// ---------- Quick mode (spec §5: result, serve/reception and the attacking finish first) ----------
+
+export function isQuick(match, L) {
+  return match.mode !== 'detailed' && !L?.fullPad;
+}
+
+function qbtn(label, symbol, tone, act, value, disabled = false) {
+  return `<button class="grade ${tone}" data-act="${act}" data-value="${h(value)}" ${disabled ? 'disabled' : ''}>
+    <span class="g-sym">${h(symbol)}</span><span class="g-label">${h(label)}</span></button>`;
+}
+
+function qend(team, kind, title, sub = '') {
+  return `<button class="qend ${team}" data-act="q-end" data-kind="${kind}"><b>${h(title)}</b>${sub ? `<span>${h(sub)}</span>` : ''}</button>`;
+}
+
+function quickPadHtml(match, built, L, map) {
+  const c = built.current;
+  const touches = c.openRally?.touches ?? [];
+  const weServe = c.serving === 'us';
+  const server = c.snap.court[0].player;
+  const sel = L.player && L.player !== 'opp' && L.player !== 'unk' ? L.player : null;
+  const num = sel ? `#${map.get(sel)?.number ?? '?'}` : '';
+  const ourServe = touches.find((t) => t.team === 'us' && t.skill === 'S');
+  const ourRecv = touches.find((t) => t.team === 'us' && t.skill === 'R');
+
+  let first;
+  if (weServe) {
+    first = ourServe
+      ? `<div class="q-done">Подача ${h(playerLabel(ourServe.player, map))} в игре. Дальше — итог розыгрыша.</div>`
+      : `<div class="q-block"><div class="q-title">Подача · ${h(playerLabel(server, map))}</div>
+          <div class="q-row three">${qbtn('Эйс', '#', 'good', 'q-serve', '#')}${qbtn('В игре', '·', 'neutral', 'q-serve', 'in')}${qbtn('Ошибка', '=', 'bad', 'q-serve', '=')}</div></div>`;
+  } else if (ourRecv) {
+    const g = gradeInfo('R', ourRecv.grade);
+    first = `<div class="q-done">Приём ${h(playerLabel(ourRecv.player, map))}: ${h(g.symbol)} ${h(g.label)}. Дальше — итог розыгрыша.</div>`;
+  } else {
+    const grades = ['#', '+', '!', '-', '/o'].map((g) => {
+      const info = gradeInfo('R', g);
+      return qbtn(info.label, info.symbol, info.tone, 'q-recv', g, !sel);
+    });
+    first = `<div class="q-block"><div class="q-title">Приём · ${sel ? h(playerLabel(sel, map)) : '<span class="muted">выберите принимающего на площадке</span>'}</div>
+      <div class="q-row">${grades.join('')}</div>
+      <button class="chip q-wide" data-act="q-opp-serve-error">Ошибка подачи соперника · +1 нам</button></div>`;
+  }
+
+  const errorPick = L.errorPick && sel
+    ? `<div class="q-block"><div class="q-title">Ошибка ${h(playerLabel(sel, map))} — в чём?</div><div class="q-row">${[
+        ['A', 'Атака'], ['B', 'Блок / сетка'], ['D', 'Защита'], ['E', 'Пас'], ['R', 'Приём'], ['F', 'Свободный'],
+      ].map(([k, l]) => `<button class="chip" data-act="q-error-skill" data-value="${k}">${l}</button>`).join('')}
+      <button class="chip" data-act="q-error-skill" data-value="">Без уточнения</button></div></div>`
+    : '';
+
+  const who = sel ? `Выбран ${playerLabel(sel, map)} — очко запишется на него` : 'Игрок не выбран — очко запишется на команду';
+  return `${first}
+    <div class="q-hint ${sel ? 'on' : ''}">${h(who)}${sel ? ' <button class="link" data-act="q-clear">снять</button>' : ''}</div>
+    <div class="q-finish">
+      <div class="q-col"><div class="q-head us">Очко ${h(match.teamName)}</div>
+        ${qend('us', 'us-kill', 'Атака', num)}
+        ${qend('us', 'us-block', 'Блок', num)}
+        ${qend('us', 'us-opp-error', 'Ошибка соперника')}
+      </div>
+      <div class="q-col"><div class="q-head them">Очко ${h(match.opponent)}</div>
+        ${qend('them', 'them-kill', 'Атака соперника')}
+        ${qend('them', 'them-block', 'Блок соперника', sel ? `атаковал ${num}` : '')}
+        ${!weServe && !ourRecv ? qend('them', 'them-ace', 'Эйс соперника', sel ? `принимал ${num}` : '') : ''}
+        ${qend('them', 'us-error', 'Наша ошибка', num)}
+      </div>
+    </div>
+    ${errorPick}
+    <button class="link q-more" data-act="q-full" data-value="1">Подробный ввод касания →</button>
+    ${noticesHtml(built, map)}`;
+}
+
+async function quickTouch(team, player, skill, grade) {
+  if (state.current.built.phase !== 'live') return;
+  await addEntry('touch', { team, player, skill, grade });
+  const L = state.ui.live;
+  L.player = null;
+  L.errorPick = false;
+  navigator.vibrate?.(10);
+  applySuggestion();
+  render();
+}
+
+async function quickPoint(winner, reason) {
+  if (state.current.built.phase !== 'live') return;
+  await addEntry('point', { winner, reason });
+  const L = state.ui.live;
+  L.player = null;
+  L.errorPick = false;
+  applySuggestion();
+  render();
+}
+
+const selected = () => {
+  const p = state.ui.live?.player;
+  return p && p !== 'opp' && p !== 'unk' ? p : null;
+};
+
+actions['q-serve'] = ({ value }) => quickTouch('us', state.current.built.current.snap.court[0].player, 'S', value);
+
+actions['q-recv'] = ({ value }) => {
+  const p = selected();
+  if (p) return quickTouch('us', p, 'R', value);
+};
+
+actions['q-opp-serve-error'] = () => quickTouch('them', null, 'S', '=');
+
+actions['q-clear'] = () => {
+  state.ui.live.player = null;
+  state.ui.live.errorPick = false;
+  render();
+};
+
+actions['q-end'] = ({ kind }) => {
+  const p = selected();
+  switch (kind) {
+    case 'us-kill':
+      return quickTouch('us', p, 'A', 'K');
+    case 'us-block':
+      return quickTouch('us', p, 'B', 'P');
+    case 'us-opp-error':
+      return quickPoint('us', 'error');
+    case 'them-kill':
+      return quickTouch('them', null, 'A', 'K');
+    case 'them-block':
+      return p ? quickTouch('us', p, 'A', 'B') : quickTouch('them', null, 'B', 'P');
+    case 'them-ace':
+      return p ? quickTouch('us', p, 'R', '=') : quickTouch('them', null, 'S', '#');
+    case 'us-error':
+      if (p) {
+        state.ui.live.errorPick = true;
+        render();
+        return;
+      }
+      return quickPoint('them', 'error');
+    default:
+      return;
+  }
+};
+
+actions['q-error-skill'] = ({ value }) => {
+  const p = selected();
+  if (!value || !p) return quickPoint('them', 'error');
+  return quickTouch('us', p, value, value === 'A' ? 'E' : '=');
+};
+
+actions['q-full'] = ({ value }) => {
+  const L = state.ui.live;
+  L.fullPad = value === '1';
+  L.errorPick = false;
+  applySuggestion();
+  render();
+};
+
+actions['live-mode'] = async () => {
+  const m = state.current.match;
+  m.mode = m.mode === 'detailed' ? 'quick' : 'detailed';
+  await saveMatch(m);
+  state.ui.live.fullPad = false;
+  applySuggestion();
+  toast(m.mode === 'detailed' ? 'Подробный режим: все касания и уточнения' : 'Быстрый режим: подача/приём и итог розыгрыша');
+  render();
+};
 
 // ---------- Recording ----------
 

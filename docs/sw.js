@@ -1,6 +1,6 @@
 // Serves the app from cache so it opens at a gym with no signal. Fresh files are fetched in the
 // background and show up on the next launch; bump VERSION when the file list changes.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `volleystats-${VERSION}`;
 const FILES = [
   './',

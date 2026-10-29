@@ -207,7 +207,19 @@ function coverageBanner(built, match) {
   const cov = coverageNotice(rallies);
   if (!cov.total) return '';
   const small = state.settings.smallSample;
-  return `<div class="coverage ${cov.incomplete ? 'partial' : ''}">
+  const ours = rallies.flatMap((r) => [...r.touches, ...r.linked]).filter((t) => t.team === 'us');
+  const has = (skill) => ours.some((t) => t.skill === skill);
+  const oppReception = rallies.some((r) => r.touches.some((t) => t.team === 'them' && t.skill === 'R'));
+  const missing = [
+    !has('E') && 'передачи не записаны — отчёт связующего, Assists и Kill after set недоступны',
+    !has('D') && 'защита не записана — показатели защиты недоступны',
+    !oppReception && 'приём соперника не записан — давление подачи недоступно',
+    !has('R') && 'приём не записан — показатели приёма недоступны',
+  ].filter(Boolean);
+  const unavailable = missing.length
+    ? `<div class="unavailable">${ICONS.warn}<div><b>Недоступно при текущей полноте записи:</b><br>${missing.map(h).join('<br>')}</div></div>`
+    : '';
+  return `${unavailable}<div class="coverage ${cov.incomplete ? 'partial' : ''}">
     Розыгрышей: <b>${cov.total}</b> · полных записей: <b>${cov.total - cov.incomplete}</b>${
       cov.incomplete
         ? ` · <a href="#/feed/${match.id}?flags=incomplete&reset=1">неполных ${cov.incomplete}</a> — проценты передач и защиты считаются только по записанным касаниям, полнота не установлена`

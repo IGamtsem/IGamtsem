@@ -2107,3 +2107,149 @@ table.stats {
     display: none;
   }
 }
+
+/* ---------- Quick mode ---------- */
+
+.q-block {
+  margin-bottom: 10px;
+}
+
+.q-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 2px 2px 8px;
+}
+
+.q-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 8px;
+}
+
+.q-row.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.q-row .chip {
+  justify-content: center;
+}
+
+.q-wide {
+  width: 100%;
+  justify-content: center;
+  margin-top: 8px;
+  min-height: 48px;
+  font-size: 15px;
+}
+
+.q-done {
+  margin-bottom: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.q-hint {
+  margin: 4px 2px 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.q-hint.on {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.q-finish {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.q-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.q-head {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.q-head.us {
+  color: var(--us);
+}
+
+.q-head.them {
+  color: var(--them);
+}
+
+.qend {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 58px;
+  padding: 6px;
+  border: 0;
+  border-radius: 14px;
+  color: #fff;
+  text-align: center;
+}
+
+.qend b {
+  font-size: 16px;
+}
+
+.qend span {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.qend.us {
+  background: var(--us);
+}
+
+.qend.them {
+  background: var(--them);
+}
+
+.qend:active {
+  filter: brightness(0.9);
+}
+
+.q-more,
+.q-back {
+  display: block;
+  margin: 12px 2px 4px;
+  font-size: 14px;
+}
+
+.unavailable {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(154, 91, 0, 0.12);
+  color: var(--warn);
+  font-size: 14px;
+}
+
+.unavailable .ico {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.mode-switch {
+  margin-top: 14px;
+}

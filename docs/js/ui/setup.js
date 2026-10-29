@@ -152,6 +152,13 @@ export async function viewMatch({ id }) {
           <div class="score-date">${h(p.name)} · до ${Math.floor(p.bestOf / 2) + 1} побед · ${p.pointsPerSet}/${p.decidingSetPoints} · ${SYSTEMS[match.system]} · ${match.mode === 'detailed' ? 'подробный режим' : 'быстрый режим'} · ${h(match.scale)}</div>
         </div>
         ${next}${done}
+        <div class="segmented big mode-switch">
+          <button class="seg ${match.mode !== 'detailed' ? 'active' : ''}" data-act="match-mode" data-value="quick">Быстрый режим</button>
+          <button class="seg ${match.mode === 'detailed' ? 'active' : ''}" data-act="match-mode" data-value="detailed">Подробный (по видео)</button>
+        </div>
+        <p class="hint">${match.mode === 'detailed'
+          ? 'Подробный: все касания обеих команд, уточнения направления, системы и участников блока.'
+          : 'Быстрый: на своей подаче — одно касание, на приёме — игрок и оценка, затем итог розыгрыша одной кнопкой. Позже матч можно дописать в подробном режиме.'}</p>
         <div class="group">
           <a class="row" href="#/feed/${id}">${ICONS.list}<div class="row-main"><div class="row-title">Лента розыгрышей</div><div class="row-sub">Все касания, исправления, поиск</div></div>${ICONS.chevron}</a>
           <a class="row" href="#/reports/${id}/team">${ICONS.chart}<div class="row-main"><div class="row-title">Отчёты</div><div class="row-sub">Команда, игроки, связующий, расстановки, серии</div></div>${ICONS.chevron}</a>
@@ -165,6 +172,14 @@ export async function viewMatch({ id }) {
       </main>`,
   };
 }
+
+actions['match-mode'] = async ({ value }) => {
+  const m = state.current.match;
+  m.mode = value;
+  await saveMatch(m);
+  if (state.ui.live) state.ui.live.fullPad = false;
+  render();
+};
 
 actions['export-json'] = async () => {
   const cur = state.current;

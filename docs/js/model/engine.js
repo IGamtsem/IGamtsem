@@ -447,7 +447,8 @@ export function analyzeRally(rally) {
       continue;
     }
     const prev = cur?.touches[cur.touches.length - 1];
-    if (!cur || cur.team !== t.team || prev?.skill === 'A') {
+    // The ball crosses the net after a serve or an attack, even when the other side's touches are not recorded.
+    if (!cur || cur.team !== t.team || prev?.skill === 'A' || prev?.skill === 'S') {
       cur = { team: t.team, touches: [], first: t.skill };
       possessions.push(cur);
     }
@@ -489,6 +490,10 @@ export function analyzeRally(rally) {
       // The opponent's serve is rarely scouted live; only our own serve is required for completeness.
       const serve = rally.touches.find((t) => t.skill === 'S' && t.team === rally.serving);
       if (!serve && rally.serving === 'us') gaps.push('Нет подачи');
+      const endedOnServe = serve && serve === rally.touches.find((t) => GRADES.S[t.grade]?.ends && t.skill === 'S');
+      if (rally.serving === 'them' && !endedOnServe && !rally.touches.some((t) => t.team === 'us' && t.skill === 'R')) {
+        gaps.push('Нет приёма');
+      }
       for (const p of possessions) {
         if (p.team === 'us' && !FIRST_TOUCH.has(p.first) && p.first !== 'S') {
           gaps.push('Пропущено первое касание владения');
