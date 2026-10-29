@@ -372,60 +372,71 @@ function qend(team, kind, title, sub = '') {
   return `<button class="qend ${team}" data-act="q-end" data-kind="${kind}"><b>${h(title)}</b>${sub ? `<span>${h(sub)}</span>` : ''}</button>`;
 }
 
+// Grades offered per skill in quick mode: the whole attack scale, the useful block outcomes,
+// and a four-step dig scale (the overpass grade D/ stays in detailed input).
+const QUICK_ROWS = [
+  ['A', ['K', 'C', 'B', 'E']],
+  ['B', ['P', 'S', 'T', '=']],
+  ['D', ['+', '!', '-', '=']],
+];
+
 function quickPadHtml(match, built, L, map) {
   const c = built.current;
   const touches = c.openRally?.touches ?? [];
   const weServe = c.serving === 'us';
   const server = c.snap.court[0].player;
   const sel = L.player && L.player !== 'opp' && L.player !== 'unk' ? L.player : null;
-  const num = sel ? `#${map.get(sel)?.number ?? '?'}` : '';
   const ourServe = touches.find((t) => t.team === 'us' && t.skill === 'S');
   const ourRecv = touches.find((t) => t.team === 'us' && t.skill === 'R');
 
-  let first;
+  let first = '';
   if (weServe) {
     first = ourServe
-      ? `<div class="q-done">Подача ${h(playerLabel(ourServe.player, map))} в игре. Дальше — итог розыгрыша.</div>`
+      ? ''
       : `<div class="q-block"><div class="q-title">Подача · ${h(playerLabel(server, map))}</div>
           <div class="q-row three">${qbtn('Эйс', '#', 'good', 'q-serve', '#')}${qbtn('В игре', '·', 'neutral', 'q-serve', 'in')}${qbtn('Ошибка', '=', 'bad', 'q-serve', '=')}</div></div>`;
-  } else if (ourRecv) {
-    const g = gradeInfo('R', ourRecv.grade);
-    first = `<div class="q-done">Приём ${h(playerLabel(ourRecv.player, map))}: ${h(g.symbol)} ${h(g.label)}. Дальше — итог розыгрыша.</div>`;
-  } else {
-    const grades = ['#', '+', '!', '-', '/o'].map((g) => {
+  } else if (!ourRecv && !touches.some((t) => t.team === 'us')) {
+    const grades = ['#', '+', '!', '-', '/o', '='].map((g) => {
       const info = gradeInfo('R', g);
-      return qbtn(info.label, info.symbol, info.tone, 'q-recv', g, !sel);
+      return qbtn(g === '=' ? 'Эйс соп.' : info.label, info.symbol, info.tone, 'q-act', `R:${g}`, !sel);
     });
-    first = `<div class="q-block"><div class="q-title">Приём · ${sel ? h(playerLabel(sel, map)) : '<span class="muted">выберите принимающего на площадке</span>'}</div>
-      <div class="q-row">${grades.join('')}</div>
-      <button class="chip q-wide" data-act="q-opp-serve-error">Ошибка подачи соперника · +1 нам</button></div>`;
+    first = `<div class="q-block"><div class="q-title">Приём · ${sel ? h(playerLabel(sel, map)) : '<span class="muted">выберите принимающего</span>'}</div>
+      <div class="q-row six">${grades.join('')}</div></div>`;
   }
 
-  const errorPick = L.errorPick && sel
-    ? `<div class="q-block"><div class="q-title">Ошибка ${h(playerLabel(sel, map))} — в чём?</div><div class="q-row">${[
-        ['A', 'Атака'], ['B', 'Блок / сетка'], ['D', 'Защита'], ['E', 'Пас'], ['R', 'Приём'], ['F', 'Свободный'],
-      ].map(([k, l]) => `<button class="chip" data-act="q-error-skill" data-value="${k}">${l}</button>`).join('')}
-      <button class="chip" data-act="q-error-skill" data-value="">Без уточнения</button></div></div>`
-    : '';
+  // Highlight the row we expect next: after our first touch an attack, after theirs a block or dig.
+  const sug = L.suggestion?.skill;
+  const expected = sug === 'E' || sug === 'A' ? 'A' : sug === 'B' ? 'B' : sug === 'D' || sug === 'C' ? 'D' : null;
+  const rows = QUICK_ROWS.map(
+    ([skill, grades]) => `<div class="q-skill ${expected === skill && touches.length ? 'expected' : ''}">
+      <div class="q-skill-name">${SKILLS[skill].title}</div>
+      <div class="q-row four">${grades
+        .map((g) => {
+          const info = gradeInfo(skill, g);
+          return qbtn(info.label, info.symbol, info.tone, 'q-act', `${skill}:${g}`, !sel);
+        })
+        .join('')}</div></div>`
+  ).join('');
 
-  const who = sel ? `Выбран ${playerLabel(sel, map)} — очко запишется на него` : 'Игрок не выбран — очко запишется на команду';
+  const who = sel
+    ? `${h(playerLabel(sel, map))} <button class="link" data-act="q-clear">снять</button>`
+    : '<span class="muted">Нажмите на игрока на площадке</span>';
+
   return `${first}
-    <div class="q-hint ${sel ? 'on' : ''}">${h(who)}${sel ? ' <button class="link" data-act="q-clear">снять</button>' : ''}</div>
-    <div class="q-finish">
-      <div class="q-col"><div class="q-head us">Очко ${h(match.teamName)}</div>
-        ${qend('us', 'us-kill', 'Атака', num)}
-        ${qend('us', 'us-block', 'Блок', num)}
-        ${qend('us', 'us-opp-error', 'Ошибка соперника')}
-      </div>
-      <div class="q-col"><div class="q-head them">Очко ${h(match.opponent)}</div>
-        ${qend('them', 'them-kill', 'Атака соперника')}
-        ${qend('them', 'them-block', 'Блок соперника', sel ? `атаковал ${num}` : '')}
-        ${!weServe && !ourRecv ? qend('them', 'them-ace', 'Эйс соперника', sel ? `принимал ${num}` : '') : ''}
-        ${qend('them', 'us-error', 'Наша ошибка', num)}
+    <div class="q-player">${who}</div>
+    ${rows}
+    <div class="q-team">
+      <div class="q-team-title">Итог без игрока</div>
+      <div class="q-team-row">
+        ${!weServe && !touches.length ? qend('us', 'opp-serve-error', 'Ошибка подачи соп.', '+1 нам') : ''}
+        ${qend('us', 'us-opp-error', 'Ошибка соперника', '+1 нам')}
+        ${qend('them', 'them-kill', 'Атака соперника', '+1 им')}
+        ${qend('them', 'them-block', 'Блок соперника', '+1 им')}
+        ${!weServe && !ourRecv ? qend('them', 'them-ace', 'Эйс соперника', '+1 им') : ''}
+        ${qend('them', 'us-error', 'Наша ошибка', '+1 им')}
       </div>
     </div>
-    ${errorPick}
-    <button class="link q-more" data-act="q-full" data-value="1">Подробный ввод касания →</button>
+    <button class="link q-more" data-act="q-full" data-value="1">Подробный ввод (пас, страховка, уточнения) →</button>
     ${noticesHtml(built, map)}`;
 }
 
@@ -434,7 +445,6 @@ async function quickTouch(team, player, skill, grade) {
   await addEntry('touch', { team, player, skill, grade });
   const L = state.ui.live;
   L.player = null;
-  L.errorPick = false;
   navigator.vibrate?.(10);
   applySuggestion();
   render();
@@ -445,7 +455,6 @@ async function quickPoint(winner, reason) {
   await addEntry('point', { winner, reason });
   const L = state.ui.live;
   L.player = null;
-  L.errorPick = false;
   applySuggestion();
   render();
 }
@@ -457,56 +466,40 @@ const selected = () => {
 
 actions['q-serve'] = ({ value }) => quickTouch('us', state.current.built.current.snap.court[0].player, 'S', value);
 
-actions['q-recv'] = ({ value }) => {
+actions['q-act'] = ({ value }) => {
   const p = selected();
-  if (p) return quickTouch('us', p, 'R', value);
+  if (!p) return;
+  const [skill, grade] = value.split(':');
+  return quickTouch('us', p, skill, grade);
 };
-
-actions['q-opp-serve-error'] = () => quickTouch('them', null, 'S', '=');
 
 actions['q-clear'] = () => {
   state.ui.live.player = null;
-  state.ui.live.errorPick = false;
   render();
 };
 
 actions['q-end'] = ({ kind }) => {
-  const p = selected();
   switch (kind) {
-    case 'us-kill':
-      return quickTouch('us', p, 'A', 'K');
-    case 'us-block':
-      return quickTouch('us', p, 'B', 'P');
+    case 'opp-serve-error':
+      return quickTouch('them', null, 'S', '=');
     case 'us-opp-error':
       return quickPoint('us', 'error');
     case 'them-kill':
       return quickTouch('them', null, 'A', 'K');
     case 'them-block':
-      return p ? quickTouch('us', p, 'A', 'B') : quickTouch('them', null, 'B', 'P');
+      return quickTouch('them', null, 'B', 'P');
     case 'them-ace':
-      return p ? quickTouch('us', p, 'R', '=') : quickTouch('them', null, 'S', '#');
+      return quickTouch('them', null, 'S', '#');
     case 'us-error':
-      if (p) {
-        state.ui.live.errorPick = true;
-        render();
-        return;
-      }
       return quickPoint('them', 'error');
     default:
-      return;
+      return undefined;
   }
-};
-
-actions['q-error-skill'] = ({ value }) => {
-  const p = selected();
-  if (!value || !p) return quickPoint('them', 'error');
-  return quickTouch('us', p, value, value === 'A' ? 'E' : '=');
 };
 
 actions['q-full'] = ({ value }) => {
   const L = state.ui.live;
   L.fullPad = value === '1';
-  L.errorPick = false;
   applySuggestion();
   render();
 };
