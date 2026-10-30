@@ -34,8 +34,12 @@ export const GRADES = {
     in: { label: 'В игре', symbol: '·', tone: 'neutral' },
     '=': { label: 'Ошибка', tone: 'bad', ends: 'opp' },
   },
+  // Reception "/" always carries a subtype (spec §6), so there is no plain "/" grade here.
   R: {
-    ...quality({ '#': { tone: 'good' }, '+': { tone: 'good' }, '!': { tone: 'neutral' }, '-': { tone: 'warn' } }),
+    '#': { label: 'Отлично', tone: 'good' },
+    '+': { label: 'Хорошо', tone: 'good' },
+    '!': { label: 'Средне', tone: 'neutral' },
+    '-': { label: 'Плохо', tone: 'warn' },
     '/o': { label: 'Перелёт', symbol: '/', tone: 'warn' },
     '/f': { label: 'Вынужд. свободный', symbol: '/', tone: 'warn' },
     '=': { label: 'Ошибка', tone: 'bad', ends: 'opp' },

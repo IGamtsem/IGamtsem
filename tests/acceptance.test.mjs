@@ -433,3 +433,14 @@ test('quick-mode completeness: result-only rallies are marked incomplete, serve/
   const oh = playersReport(built, s.match).rows.find((r) => r.id === 'OH1').line.attack;
   assert.equal(oh.afterR.ta, 0, 'an attack right after our own serve is not a first attack after reception');
 });
+
+test('every grade button has a colour, a label, and reception "/" always has a subtype', async () => {
+  const { GRADES } = await import('../docs/js/model/constants.js');
+  for (const [skill, grades] of Object.entries(GRADES)) {
+    for (const [code, g] of Object.entries(grades)) {
+      assert.ok(g.tone, `${skill} ${code} has no tone`);
+      assert.ok(g.label, `${skill} ${code} has no label`);
+    }
+  }
+  assert.ok(!('/' in GRADES.R));
+});

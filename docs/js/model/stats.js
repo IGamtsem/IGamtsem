@@ -133,7 +133,8 @@ export function skillLine(touches, { allTouchesForAssists = touches, playerId = 
       positive: pct(R.c('#') + R.c('+'), R.graded),
       error: pct(R.c('='), R.graded),
       overpass: R.c('/o'),
-      slash: R.c('/o') + R.c('/f'),
+      // A plain R/ could only come from an earlier build that offered it by mistake.
+      slash: R.c('/o') + R.c('/f') + R.c('/'),
       unknown: R.unknown,
     },
     defense: {
