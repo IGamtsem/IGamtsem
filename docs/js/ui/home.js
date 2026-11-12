@@ -1,6 +1,6 @@
 // Matches list, teams and rosters, settings and backups.
 
-import { state, saveTeam, deleteTeam, demoTeam, uid, saveSettings, importMatch, DEFAULT_SETTINGS } from '../core.js';
+import { state, saveTeam, deleteTeam, demoTeam, uid, saveSettings, importMatch, addDemoMatch, DEFAULT_SETTINGS } from '../core.js';
 import * as db from '../db.js';
 import { POSITIONS } from '../model/constants.js';
 import { parseMatchExport } from '../model/exchange.js';
@@ -39,7 +39,7 @@ export function viewMatches() {
         emptyState(
           'Нет матчей',
           'Создайте команду с заявкой, затем начните матч: стартовая расстановка, подача, и дальше запись по розыгрышам.',
-          '<a class="btn primary" href="#/new-match">Новый матч</a>'
+          '<a class="btn primary" href="#/new-match">Новый матч</a><button class="btn" data-act="demo-match">Демо-матч с отчётами</button>'
         ),
     };
   }
@@ -53,7 +53,9 @@ export function viewMatches() {
       `<main class="content">${section('Идут', list.filter((m) => m.status !== 'finished'))}${section(
         'Завершены',
         list.filter((m) => m.status === 'finished')
-      )}</main>`,
+      )}
+      <button class="btn wide" data-act="demo-match">Добавить демо-матч с отчётами</button>
+      <p class="hint">Демо-матч — полностью записанный матч из четырёх партий, чтобы посмотреть все отчёты. Его можно удалить, как обычный матч.</p></main>`,
   };
 }
 
@@ -94,6 +96,12 @@ export function viewTeams() {
       );
   return { tab: 'teams', title: 'Команды', html: largeHeader('Команды', add) + `<main class="content">${list}</main>` };
 }
+
+actions['demo-match'] = async () => {
+  toast('Создаю демо-матч…');
+  const match = await addDemoMatch();
+  go(`#/reports/${match.id}/team`);
+};
 
 actions['add-team'] = async () => {
   const name = (await askText('Новая команда', 'Название'))?.trim();

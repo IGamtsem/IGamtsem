@@ -4,6 +4,7 @@
 import * as db from './db.js';
 import { buildMatch, byOrder } from './model/engine.js';
 import { RULE_PROFILES, SCALE_VERSION } from './model/constants.js';
+import { generateDemoMatch, requiredDemoRoles } from './model/demo.js';
 
 export const state = {
   teams: [],
@@ -171,6 +172,18 @@ export async function importMatch(match, entries) {
   if (i === -1) state.matches.push(match);
   else state.matches[i] = match;
   if (state.current?.match.id === match.id) state.current = null;
+}
+
+/** Creates a fully scouted demo match (and the demo team if needed) and stores it. */
+export async function addDemoMatch() {
+  let team = state.teams.find((t) => t.name === 'Демо-команда' && requiredDemoRoles(t)) ?? state.teams.find(requiredDemoRoles);
+  if (!team) {
+    team = demoTeam();
+    await saveTeam(team);
+  }
+  const { match, entries } = generateDemoMatch(team, { uid });
+  await importMatch(match, entries);
+  return match;
 }
 
 // ---------- Log ----------

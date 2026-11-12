@@ -444,3 +444,24 @@ test('every grade button has a colour, a label, and reception "/" always has a s
   }
   assert.ok(!('/' in GRADES.R));
 });
+
+test('demo match: a complete, rule-consistent four-set match that feeds every report', async () => {
+  const { generateDemoMatch } = await import('../docs/js/model/demo.js');
+  const { setterReport, rotationsReport } = await import('../docs/js/model/stats.js');
+  let n = 0;
+  const team = {
+    id: 'T',
+    name: 'Демо-команда',
+    players: [['S', 1, 'setter'], ['OH1', 4, 'outside'], ['OH2', 5, 'outside'], ['OH3', 7, 'outside'], ['O', 9, 'opposite'],
+      ['M1', 11, 'middle'], ['M2', 13, 'middle'], ['M3', 15, 'middle'], ['L', 17, 'libero']].map(([id, number, position]) => ({ id, name: id, number, position })),
+  };
+  const { match, built } = generateDemoMatch(team, { uid: () => `id${++n}` });
+  assert.equal(built.phase, 'matchOver');
+  assert.ok(built.sets.length >= 3);
+  assert.equal(built.notices.filter((x) => x.kind === 'warning').length, 0);
+  assert.equal(built.rallies.filter((r) => r.warnings.length).length, 0);
+  assert.ok(distributionReport(built, match).consistent);
+  assert.equal(rotationsReport(built, match).length, 6);
+  assert.ok(setterReport(built, match).count > 50);
+  assert.equal(match.summary.setsWon.us + match.summary.setsWon.them, built.sets.length);
+});
